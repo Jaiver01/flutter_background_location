@@ -8,6 +8,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -120,7 +121,7 @@ void onStart(ServiceInstance service) async {
   });
 
   // bring to foreground
-  Timer.periodic(const Duration(seconds: 1), (timer) async {
+  Timer.periodic(const Duration(seconds: 10), (timer) async {
     if (service is AndroidServiceInstance) {
       if (await service.isForegroundService()) {
         /// OPTIONAL for use custom notification
@@ -149,6 +150,7 @@ void onStart(ServiceInstance service) async {
 
     /// you can see this log in logcat
     print('FLUTTER BACKGROUND SERVICE: ${DateTime.now()}');
+    await writeData('[${DateTime.now()}]\n');
 
     // test using external plugin
     final deviceInfo = DeviceInfoPlugin();
@@ -245,6 +247,10 @@ class _MyAppState extends State<MyApp> {
             const Expanded(
               child: LogView(),
             ),
+            ElevatedButton(
+              onPressed: () => clearFile(),
+              child: const Text('Clear File'),
+            ),
           ],
         ),
         floatingActionButton: FloatingActionButton(
@@ -270,10 +276,13 @@ class _LogViewState extends State<LogView> {
   @override
   void initState() {
     super.initState();
-    timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      final SharedPreferences sp = await SharedPreferences.getInstance();
-      await sp.reload();
-      logs = sp.getStringList('log') ?? [];
+    timer = Timer.periodic(const Duration(seconds: 10), (timer) async {
+      // final SharedPreferences sp = await SharedPreferences.getInstance();
+      // await sp.reload();
+      // logs = sp.getStringList('log') ?? [];
+      final data = await readData();
+      logs = data.split('\n');
+
       if (mounted) {
         setState(() {});
       }
@@ -295,5 +304,37 @@ class _LogViewState extends State<LogView> {
         return Text(log);
       },
     );
+  }
+}
+
+Future<void> writeData(String text) async {
+  final Directory directory = await getApplicationDocumentsDirectory();
+  final File file = File('${directory.path}/my_file_date.txt');
+
+  String data = '';
+  if (await file.exists()) {
+    data = await file.readAsString();
+  }
+
+  await file.writeAsString(data + text);
+}
+
+Future<String> readData() async {
+  final Directory directory = await getApplicationDocumentsDirectory();
+  final File file = File('${directory.path}/my_file_date.txt');
+
+  if (await file.exists()) {
+    return await file.readAsString();
+  }
+
+  return 'File not exists';
+}
+
+Future<void> clearFile() async {
+  final Directory directory = await getApplicationDocumentsDirectory();
+  final File file = File('${directory.path}/my_file_date.txt');
+
+  if (await file.exists()) {
+    await file.delete();
   }
 }
